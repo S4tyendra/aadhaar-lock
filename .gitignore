@@ -7,3 +7,5 @@ local.properties
 *.apk
 *.aab
 *.log
+*.jks
+*.keystore
