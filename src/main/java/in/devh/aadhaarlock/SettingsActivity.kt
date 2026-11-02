@@ -167,10 +167,29 @@ class SettingsActivity : Screen() {
                     Backup.parse(BackupCrypto.open(file, password))
                 }
             }
-            backup.onSuccess { restore(it) }.onFailure {
+            backup.onSuccess { confirmRestore(it) }.onFailure {
                 DebugLog.line("restore ${it.javaClass.simpleName}")
                 say((it as? BackupCrypto.BadBackup)?.message ?: "Couldn't read the backup")
             }
+        }
+    }
+
+    private fun confirmRestore(backup: Backup) {
+        if (backup.uid == null || !vault.hasSaved) {
+            restore(backup)
+            return
+        }
+        val title = "Replace saved card?"
+        val message = "The Aadhaar number and card saved on this phone will be replaced by the backup."
+        if (colorOs) {
+            coui.dialog(title, message, "Replace", "Cancel", { restore(backup) })
+        } else {
+            MaterialAlertDialogBuilder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Replace") { _, _ -> restore(backup) }
+                .show()
         }
     }
 
