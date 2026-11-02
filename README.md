@@ -34,11 +34,12 @@ Android 12 or newer.
 
 ## Build it yourself
 
-You need JDK 17 and Android SDK 37.
+You need JDK 17, Android SDK 37 and `coui-kit-1.0.0.aar`, a private library this repo does not include.
 
 ```sh
 git clone https://github.com/S4tyendra/aadhaar-lock
 cd aadhaar-lock
+# put coui-kit-1.0.0.aar in libs/ first
 ./gradlew assembleDebug
 ```
 

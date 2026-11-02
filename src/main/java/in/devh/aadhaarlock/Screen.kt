@@ -6,10 +6,18 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import `in`.devh.coui.Coui
 
 open class Screen : AppCompatActivity() {
+    protected var colorOs = true
+        private set
+
+    /** Only touched in the ColorOS interface, so Material never loads the COUI pack. */
+    protected val coui: Coui by lazy { Coui(this) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        colorOs = Prefs(this).colorOsUi
+        if (!colorOs) enableEdgeToEdge()
         super.onCreate(savedInstanceState)
     }
 

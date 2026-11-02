@@ -24,8 +24,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.color.MaterialColors
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import `in`.devh.aadhaarlock.databinding.ActivityMainBinding
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -45,7 +43,7 @@ class MainActivity : Screen() {
     private enum class Bio { UNKNOWN, LOCKED, UNLOCKED, TEMP }
     private enum class Uid { EDITING, LOCKED, UNLOCKED }
 
-    private lateinit var b: ActivityMainBinding
+    private lateinit var b: HomeUi
     private lateinit var prefs: Prefs
     private lateinit var api: TathyaApi
     private lateinit var tokens: TokenVault
@@ -100,9 +98,15 @@ class MainActivity : Screen() {
         SmsInbox.rootEnabled = prefs.rootSms
         signedIn = tokens.hasSession
 
-        b = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(b.root)
-        fitInsets(b.root)
+        val openSettings = { startActivity(Intent(this, SettingsActivity::class.java)) }
+        b = if (colorOs) {
+            ColorOsHome(this, coui, openSettings).also { coui.show(this, it.root) }
+        } else {
+            val binding = ActivityMainBinding.inflate(layoutInflater)
+            setContentView(binding.root)
+            fitInsets(binding.root)
+            MaterialHome(this, binding, openSettings)
+        }
         bindActions()
 
         if (vault.hasSaved) {
@@ -148,10 +152,6 @@ class MainActivity : Screen() {
     }
 
     private fun bindActions() {
-        b.toolbar.setOnMenuItemClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
-            true
-        }
         b.flowMain.setOnClickListener {
             val id = requireUid() ?: return@setOnClickListener
             when (step) {
@@ -164,14 +164,13 @@ class MainActivity : Screen() {
             otpWatchJob?.cancel()
             act("Init") { initSession() }
         }
-        b.captchaLayout.setEndIconOnClickListener { act("Solve captcha") { solveCaptcha() } }
-        b.uidField.setOnFocusChangeListener { _, _ -> b.uidLayout.error = null }
+        b.onSolve { act("Solve captcha") { solveCaptcha() } }
         b.refreshBtn.setOnClickListener {
             val id = requireUid() ?: return@setOnClickListener
             act("Status") { refreshStatus(id) }
         }
-        b.idCard.cameraDistance = 12_000 * resources.displayMetrics.density
-        b.idCard.setOnClickListener { flipIdCard() }
+        b.card.idCard.cameraDistance = 12_000 * resources.displayMetrics.density
+        b.card.idCard.setOnClickListener { flipIdCard() }
         b.idView.setOnClickListener { toggleReveal() }
         b.uidView.setOnClickListener { toggleReveal() }
         b.idCopy.setOnClickListener { chooseCopy() }
@@ -198,11 +197,7 @@ class MainActivity : Screen() {
 
     private fun confirm(title: String, go: (String) -> Unit) {
         val id = requireUid() ?: return
-        MaterialAlertDialogBuilder(this)
-            .setTitle(title)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Unlock") { _, _ -> go(id) }
-            .show()
+        b.confirm(title, "Unlock") { go(id) }
     }
 
     private fun act(label: String, block: suspend () -> Unit) {
@@ -226,7 +221,7 @@ class MainActivity : Screen() {
 
     private fun setBusy(on: Boolean) {
         busy = on
-        b.progress.visibility = if (on) View.VISIBLE else View.INVISIBLE
+        b.busy(on)
         render()
     }
 
@@ -246,22 +241,21 @@ class MainActivity : Screen() {
             revealed -> s
             else -> hidden(s, groups, keepEnd)
         }
-        b.idPhoto.setRenderEffect(
+        b.card.idPhoto.setRenderEffect(
             if (revealed) null else RenderEffect.createBlurEffect(28f, 28f, Shader.TileMode.CLAMP),
         )
-        b.idName.text = value(p.name, 2..3)
-        b.idLocalName.text = value(p.localName, 2..3)
-        b.idLocalName.isVisible = p.localName.isNotEmpty()
-        b.idDob.text = value(p.dob, 2..2)
-        b.idGender.text = value(p.gender, 1..1)
-        b.idNumber.text = value(p.spacedUid, 2..3, keepEnd = 4)
-        b.idAddress.text = value(p.address, 6..11)
-        b.idLocalAddress.text = value(p.localAddress, 6..11)
-        b.idLocalAddress.isVisible = p.localAddress.isNotEmpty()
-        b.idMobile.text = value(p.mobile, 1..2, keepEnd = 4)
-        b.idEmail.text = value(p.email, 1..2)
-        b.idView.text = if (revealed) "Hide" else "View"
-        b.idView.setIconResource(if (revealed) R.drawable.ic_visibility_off else R.drawable.ic_visibility)
+        b.card.idName.text = value(p.name, 2..3)
+        b.card.idLocalName.text = value(p.localName, 2..3)
+        b.card.idLocalName.isVisible = p.localName.isNotEmpty()
+        b.card.idDob.text = value(p.dob, 2..2)
+        b.card.idGender.text = value(p.gender, 1..1)
+        b.card.idNumber.text = value(p.spacedUid, 2..3, keepEnd = 4)
+        b.card.idAddress.text = value(p.address, 6..11)
+        b.card.idLocalAddress.text = value(p.localAddress, 6..11)
+        b.card.idLocalAddress.isVisible = p.localAddress.isNotEmpty()
+        b.card.idMobile.text = value(p.mobile, 1..2, keepEnd = 4)
+        b.card.idEmail.text = value(p.email, 1..2)
+        b.revealed(revealed)
         b.idForget.isVisible = detailsKey != null
         b.idSaved.text = savedNote()
         b.idSaved.isVisible = !profileLive
@@ -290,13 +284,13 @@ class MainActivity : Screen() {
         profileRoot = root
         profileAt = at
         profileLive = live
-        b.idPhoto.setImageBitmap(p.photo)
-        b.idPhoto.isVisible = p.photo != null
+        b.card.idPhoto.setImageBitmap(p.photo)
+        b.card.idPhoto.isVisible = p.photo != null
         render()
         if (appearing && b.idGroup.isVisible) {
-            b.idCard.alpha = 0f
-            b.idCard.translationY = 24 * resources.displayMetrics.density
-            b.idCard.animate().alpha(1f).translationY(0f).setDuration(280)
+            b.card.idCard.alpha = 0f
+            b.card.idCard.translationY = 24 * resources.displayMetrics.density
+            b.card.idCard.animate().alpha(1f).translationY(0f).setDuration(280)
                 .setInterpolator(DecelerateInterpolator()).start()
         }
     }
@@ -307,11 +301,11 @@ class MainActivity : Screen() {
         profileLive = false
         revealed = false
         masks.clear()
-        b.idCard.animate().cancel()
-        b.idCard.rotationY = 0f
+        b.card.idCard.animate().cancel()
+        b.card.idCard.rotationY = 0f
         idFlipping = false
         showIdFace(back = false)
-        b.idPhoto.setImageDrawable(null)
+        b.card.idPhoto.setImageDrawable(null)
     }
 
     private fun restoreDetails() {
@@ -330,16 +324,12 @@ class MainActivity : Screen() {
     }
 
     private fun forgetDetails() {
-        MaterialAlertDialogBuilder(this)
-            .setTitle("Remove saved details?")
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Remove") { _, _ ->
-                cache.clear()
-                clearProfile()
-                setStatus("Saved details removed")
-                render()
-            }
-            .show()
+        b.confirm("Remove saved details?", "Remove") {
+            cache.clear()
+            clearProfile()
+            setStatus("Saved details removed")
+            render()
+        }
     }
 
     private fun toggleReveal() {
@@ -350,10 +340,7 @@ class MainActivity : Screen() {
 
     private fun chooseCopy() {
         val fields = profile?.copyable() ?: return
-        MaterialAlertDialogBuilder(this)
-            .setTitle("Copy")
-            .setItems(fields.map { it.first }.toTypedArray()) { _, i -> copy(fields[i].first, fields[i].second) }
-            .show()
+        b.choose("Copy", fields.map { it.first }) { i -> copy(fields[i].first, fields[i].second) }
     }
 
     private fun copy(label: String, value: String) {
@@ -367,14 +354,14 @@ class MainActivity : Screen() {
 
     private fun showIdFace(back: Boolean) {
         idFlipped = back
-        b.idFront.visibility = if (back) View.INVISIBLE else View.VISIBLE
-        b.idBack.visibility = if (back) View.VISIBLE else View.INVISIBLE
+        b.card.idFront.visibility = if (back) View.INVISIBLE else View.VISIBLE
+        b.card.idBack.visibility = if (back) View.VISIBLE else View.INVISIBLE
     }
 
     private fun flipIdCard() {
         if (idFlipping) return
         idFlipping = true
-        val card = b.idCard
+        val card = b.card.idCard
         card.animate().rotationY(90f).setDuration(140).setInterpolator(AccelerateInterpolator())
             .withEndAction {
                 showIdFace(!idFlipped)
@@ -387,19 +374,16 @@ class MainActivity : Screen() {
     }
 
     private fun renderHero() {
-        val (title, icon, tint) = when {
-            !signedIn -> Triple("Not signed in", R.drawable.ic_shield, com.google.android.material.R.attr.colorSurfaceContainerHigh)
-            bio == Bio.LOCKED -> Triple("Biometrics locked", R.drawable.ic_lock, com.google.android.material.R.attr.colorPrimaryContainer)
-            bio == Bio.UNLOCKED -> Triple("Biometrics unlocked", R.drawable.ic_lock_open, com.google.android.material.R.attr.colorErrorContainer)
-            bio == Bio.TEMP -> Triple("Unlocked until $bioUntil", R.drawable.ic_lock_open, com.google.android.material.R.attr.colorTertiaryContainer)
-            else -> Triple("Status unknown", R.drawable.ic_shield, com.google.android.material.R.attr.colorSurfaceContainerHigh)
+        val (title, icon, tone) = when {
+            !signedIn -> Triple("Not signed in", R.drawable.ic_shield, Tone.NEUTRAL)
+            bio == Bio.LOCKED -> Triple("Biometrics locked", R.drawable.ic_lock, Tone.GOOD)
+            bio == Bio.UNLOCKED -> Triple("Biometrics unlocked", R.drawable.ic_lock_open, Tone.BAD)
+            bio == Bio.TEMP -> Triple("Unlocked until $bioUntil", R.drawable.ic_lock_open, Tone.WARN)
+            else -> Triple("Status unknown", R.drawable.ic_shield, Tone.NEUTRAL)
         }
-        b.heroTitle.text = title
-        b.heroIcon.setImageResource(icon)
-        b.heroCard.setCardBackgroundColor(MaterialColors.getColor(b.heroCard, tint))
+        b.hero(title, icon, tone)
         b.actions.isVisible = signedIn
-        b.signOutBtn.isVisible = signedIn
-        b.refreshBtn.isVisible = signedIn
+        b.signedIn(signedIn)
         b.refreshBtn.isEnabled = !busy
         b.lockBtn.isEnabled = !busy && bio != Bio.LOCKED
         b.unlockBtn.isEnabled = !busy && bio != Bio.UNLOCKED
@@ -413,8 +397,7 @@ class MainActivity : Screen() {
         b.uidIcon.setImageResource(if (uidState == Uid.LOCKED) R.drawable.ic_lock else R.drawable.ic_lock_open)
         b.uidView.isVisible = uidState == Uid.UNLOCKED
         b.uidCopy.isVisible = uidState == Uid.UNLOCKED
-        b.uidView.setIconResource(if (revealed) R.drawable.ic_visibility_off else R.drawable.ic_visibility)
-        b.uidView.contentDescription = if (revealed) "Hide number" else "View number"
+        b.revealed(revealed)
         b.uidHint.isVisible = uidState == Uid.EDITING && !canSave
         when (uidState) {
             Uid.LOCKED -> {
@@ -449,7 +432,7 @@ class MainActivity : Screen() {
         b.flowAlt.isVisible = step != Step.START
         b.flowMain.isEnabled = !busy
         b.flowAlt.isEnabled = !busy
-        b.captchaLayout.isEndIconVisible = !busy && prefs.apiKey.isNotBlank()
+        b.showSolve(!busy && prefs.apiKey.isNotBlank())
         b.stepHint.isVisible = step == Step.START
         when (step) {
             Step.START -> {
@@ -489,7 +472,7 @@ class MainActivity : Screen() {
             Uid.LOCKED, Uid.UNLOCKED -> {
                 uidBeforeEdit = uidState
                 b.uidField.setText(uidPlain)
-                b.uidLayout.error = null
+                b.showUidError(null)
                 uidState = Uid.EDITING
             }
             Uid.EDITING -> {
@@ -605,7 +588,7 @@ class MainActivity : Screen() {
     private fun validUid(): String? {
         val id = b.uidField.text.toString().trim()
         if ((id.length == 12 || id.length == 16) && id.all { it.isDigit() }) return id
-        b.uidLayout.error = "Enter a 12-digit Aadhaar or 16-digit VID"
+        b.showUidError("Enter a 12-digit Aadhaar or 16-digit VID")
         return null
     }
 

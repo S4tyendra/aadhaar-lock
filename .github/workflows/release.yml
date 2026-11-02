@@ -30,6 +30,16 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # The COUI runtime lives in a private repo and never gets committed here
+      - name: Download COUI Kit
+        env:
+          GH_TOKEN: ${{ secrets.COUI_PAT }}
+        run: |
+          mkdir -p libs
+          gh api -H "Accept: application/vnd.github.raw" \
+            repos/S4tyendra/coui-kit/contents/dist/coui-kit-1.0.0.aar > libs/coui-kit-1.0.0.aar
+          test -s libs/coui-kit-1.0.0.aar
+
       - name: Build signed APKs
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}

@@ -24,9 +24,11 @@ android {
     }
     buildTypes {
         release {
-            if (System.getenv("KEYSTORE_PATH") != null) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // locally the debug key, so a release build updates an installed debug build in place
+            signingConfig = signingConfigs.getByName(if (System.getenv("KEYSTORE_PATH") != null) "release" else "debug")
         }
     }
     splits {
@@ -53,6 +55,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(files("libs/coui-kit-1.0.0.aar"))
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("com.google.android.material:material:1.13.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

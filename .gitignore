@@ -9,3 +9,6 @@ local.properties
 *.log
 *.jks
 *.keystore
+
+# private COUI runtime, lives in the private coui-kit repo
+libs/*.aar

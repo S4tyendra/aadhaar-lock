@@ -33,6 +33,10 @@ class Prefs(context: Context) {
         get() = p.getBoolean("rootSms", false)
         set(v) { p.edit().putBoolean("rootSms", v).apply() }
 
+    var colorOsUi: Boolean
+        get() = p.getBoolean("colorOsUi", true)
+        set(v) { p.edit().putBoolean("colorOsUi", v).apply() }
+
     var tokenBlob: String
         get() = p.getString("tokenBlob", "") ?: ""
         set(v) { p.edit().putString("tokenBlob", v).apply() }

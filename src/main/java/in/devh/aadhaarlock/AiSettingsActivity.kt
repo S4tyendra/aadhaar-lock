@@ -1,32 +1,56 @@
 package `in`.devh.aadhaarlock
 
 import android.os.Bundle
+import android.text.InputType
+import android.widget.EditText
 import `in`.devh.aadhaarlock.databinding.ActivityAiBinding
 
 class AiSettingsActivity : Screen() {
-    private lateinit var b: ActivityAiBinding
     private lateinit var prefs: Prefs
+    private lateinit var baseField: EditText
+    private lateinit var modelField: EditText
+    private lateinit var keyField: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        b = ActivityAiBinding.inflate(layoutInflater)
+        prefs = Prefs(this)
+        if (colorOs) buildColorOs() else buildMaterial()
+        baseField.setText(prefs.apiBase)
+        modelField.setText(prefs.apiModel)
+        keyField.setText(prefs.apiKey)
+    }
+
+    private fun buildMaterial() {
+        val b = ActivityAiBinding.inflate(layoutInflater)
         setContentView(b.root)
         fitInsets(b.root)
-        prefs = Prefs(this)
         b.toolbar.setNavigationOnClickListener { finish() }
-        b.baseField.setText(prefs.apiBase)
-        b.modelField.setText(prefs.apiModel)
-        b.keyField.setText(prefs.apiKey)
-        b.resetBtn.setOnClickListener {
-            b.baseField.setText(CaptchaSolver.DEFAULT_BASE)
-            b.modelField.setText(CaptchaSolver.DEFAULT_MODEL)
-        }
+        baseField = b.baseField
+        modelField = b.modelField
+        keyField = b.keyField
+        b.resetBtn.setOnClickListener { reset() }
+    }
+
+    private fun buildColorOs() {
+        val base = coui.input("Base URL")
+        val model = coui.input("Model")
+        val key = coui.input("API key", password = true)
+        baseField = coui.inputText(base).apply { inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI }
+        modelField = coui.inputText(model)
+        keyField = coui.inputText(key)
+        val resetBtn = coui.button("Reset", primary = false) { reset() }
+        coui.show(this, coui.screen("Captcha AI", coui.column(base, model, key, resetBtn), onBack = { finish() }))
+    }
+
+    private fun reset() {
+        baseField.setText(CaptchaSolver.DEFAULT_BASE)
+        modelField.setText(CaptchaSolver.DEFAULT_MODEL)
     }
 
     override fun onPause() {
         super.onPause()
-        prefs.apiBase = b.baseField.text.toString().trim().ifBlank { CaptchaSolver.DEFAULT_BASE }
-        prefs.apiModel = b.modelField.text.toString().trim().ifBlank { CaptchaSolver.DEFAULT_MODEL }
-        prefs.apiKey = b.keyField.text.toString().trim()
+        prefs.apiBase = baseField.text.toString().trim().ifBlank { CaptchaSolver.DEFAULT_BASE }
+        prefs.apiModel = modelField.text.toString().trim().ifBlank { CaptchaSolver.DEFAULT_MODEL }
+        prefs.apiKey = keyField.text.toString().trim()
     }
 }
