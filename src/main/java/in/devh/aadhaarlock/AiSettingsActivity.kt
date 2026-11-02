@@ -37,7 +37,9 @@ class AiSettingsActivity : Screen() {
         val key = coui.input("API key", password = true)
         baseField = coui.inputText(base).apply { inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI }
         modelField = coui.inputText(model)
-        keyField = coui.inputText(key)
+        keyField = coui.inputText(key).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
         val resetBtn = coui.button("Reset", primary = false) { reset() }
         coui.show(this, coui.screen("Captcha AI", coui.column(base, model, key, resetBtn), onBack = { finish() }))
     }

@@ -61,6 +61,9 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.13.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.86")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20250517")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
     implementation("androidx.activity:activity-ktx:1.11.0")
 }

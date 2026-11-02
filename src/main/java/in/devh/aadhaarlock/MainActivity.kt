@@ -3,16 +3,12 @@ package `in`.devh.aadhaarlock
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.graphics.RenderEffect
 import android.graphics.Shader
-import android.hardware.biometrics.BiometricManager
-import android.hardware.biometrics.BiometricPrompt
 import android.os.Bundle
-import android.os.CancellationSignal
 import android.os.PersistableBundle
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.util.Base64
@@ -416,7 +412,7 @@ class MainActivity : Screen() {
                 b.uidAlt.isVisible = true
             }
             Uid.EDITING -> {
-                b.uidHint.text = "Add a fingerprint to save this number"
+                b.uidHint.text = "Add a fingerprint or strong biometric to save this number"
                 b.uidMain.text = "Save"
                 b.uidMain.isEnabled = canSave
                 b.uidAlt.text = "Cancel"
@@ -552,38 +548,8 @@ class MainActivity : Screen() {
         render()
     }
 
-    private fun authenticate(title: String, cipher: Cipher, onDone: (Cipher) -> Unit) {
-        val prompt = BiometricPrompt.Builder(this)
-            .setTitle(title)
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-            .setNegativeButton("Cancel", mainExecutor, DialogInterface.OnClickListener { _, _ -> })
-            .build()
-        prompt.authenticate(
-            BiometricPrompt.CryptoObject(cipher),
-            CancellationSignal(),
-            mainExecutor,
-            object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationError(errorCode: Int, errString: CharSequence?) {
-                    DebugLog.line("biometric error $errorCode $errString")
-                    if (errorCode != BiometricPrompt.BIOMETRIC_ERROR_USER_CANCELED &&
-                        errorCode != BiometricPrompt.BIOMETRIC_ERROR_CANCELED
-                    ) {
-                        setStatus(errString?.toString() ?: "Biometric error")
-                    }
-                }
-
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    val done = result.cryptoObject.cipher ?: return
-                    try {
-                        onDone(done)
-                    } catch (t: Exception) {
-                        DebugLog.line("vault ${t.javaClass.simpleName}: ${t.message}")
-                        setStatus("Biometric step failed: ${t.message}")
-                    }
-                }
-            },
-        )
-    }
+    private fun authenticate(title: String, cipher: Cipher, onDone: (Cipher) -> Unit) =
+        BiometricGate.authenticate(this, title, cipher, { setStatus(it) }, onDone)
 
     private fun validUid(): String? {
         val id = b.uidField.text.toString().trim()
